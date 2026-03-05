@@ -9,8 +9,9 @@ import { Layers, Mail } from 'lucide-react';
 import Link from 'next/link';
 import { signIn } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 
-export default function LoginPage() {
+function LoginFormContent() {
     const searchParams = useSearchParams();
     const error = searchParams.get('error');
     const [email, setEmail] = useState('');
@@ -128,5 +129,13 @@ export default function LoginPage() {
                 </CardFooter>
             </Card>
         </main>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-background flex flex-col items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>}>
+            <LoginFormContent />
+        </Suspense>
     );
 }
