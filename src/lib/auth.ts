@@ -11,12 +11,12 @@ export const authOptions: NextAuthOptions = {
     adapter: PrismaAdapter(prisma),
     providers: [
         GoogleProvider({
-            clientId: process.env.GOOGLE_CLIENT_ID as string,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+            clientId: process.env.GOOGLE_CLIENT_ID || "MISSING_GOOGLE_CLIENT_ID",
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET || "MISSING_GOOGLE_CLIENT_SECRET",
         }),
         EmailProvider({
-            server: process.env.EMAIL_SERVER,
-            from: process.env.EMAIL_FROM,
+            server: process.env.EMAIL_SERVER || "smtp://localhost:25",
+            from: process.env.EMAIL_FROM || "noreply@sisub.com",
         }),
         CredentialsProvider({
             name: "Credentials",
@@ -63,5 +63,6 @@ export const authOptions: NextAuthOptions = {
     },
     pages: {
         signIn: '/login',
-    }
+    },
+    secret: process.env.NEXTAUTH_SECRET || "fallback_secret_for_build",
 };
