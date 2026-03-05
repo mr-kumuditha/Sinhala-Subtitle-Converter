@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SiSub: Sinhala Subtitle Converter
 
-## Getting Started
+A modern, production-ready web application built with **Next.js 14**, **Tailwind CSS**, **shadcn/ui**, and **Prisma** (with Supabase PostgreSQL) to translate `.srt` subtitle files from English to Sinhala using the robust **Gemini API**.
 
-First, run the development server:
+## Features
+- **Accurate Translation:** Fast and precise translations while preserving native `.srt` timestamps and indexing.
+- **Modern UI:** Clean, responsive, and easy-to-use interface powered by Tailwind CSS and Radix primitives via `shadcn/ui`.
+- **User Authentication:** Supports user accounts and anonymous guest modes for testing.
+- **Job History:** Track translation jobs efficiently with Supabase PostgreSQL.
 
+## Technologies
+- **Framework:** Next.js 14 (App Router, Server Actions)
+- **Styling:** Tailwind CSS + shadcn/ui
+- **Database:** Supabase PostgreSQL (via Prisma ORM 7+)
+- **Authentication:** NextAuth.js
+- **AI Translation:** Google Gemini API (`gemini-1.5-flash`)
+
+## Getting Started Locally
+
+### 1. Pre-requisites
+- Node.js 18+
+- An active Supabase Database (or any PostgreSQL instance).
+- A valid Google Gemini API Key.
+
+### 2. Environment Variables
+Copy the `.env.example` file to `.env`:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env
+```
+Fill out the variables inside `.env`:
+- `DATABASE_URL`: Your Supabase connection string for the database.
+- `NEXTAUTH_SECRET`: A random secure string for NextAuth session encryption.
+- `GEMINI_API_KEY`: Your key from Google AI Studio.
+
+### 3. Database Migration
+Run the Prisma migrations to build the tables:
+```bash
+npx prisma db push
+# Or if using migrations:
+npx prisma migrate dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 4. Install Dependencies & Start Server
+```bash
+npm install
+npm run dev
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The web application should now be accessible at `http://localhost:3000`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deployment to Vercel
+1. Push your repository to GitHub.
+2. Go to your **Vercel Dashboard**, and Import the repository.
+3. In the environment variables section on Vercel, copy the identical variables from your local `.env`. 
+4. **Build settings**: Usually Vercel auto-detects Next.js. The build command `npm run build` is sufficient.
+5. Hit **Deploy**. 
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+_Note: Because translation relies on the Gemini API, heavy SRT files may hit rate limits dynamically. The internal batching system respects standard usage limits._
