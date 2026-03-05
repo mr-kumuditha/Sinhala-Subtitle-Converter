@@ -42,8 +42,8 @@ ${chunks.map((c, i) => `[CHUNK ${i}]\n${c}`).join('\n\n')}
         }
 
         return finalChunks;
-    } catch (error) {
+    } catch (error: any) {
         console.error('Gemini Translation Error:', error);
-        throw new Error('Failed to translate subtitles using Gemini API.');
+        throw new Error(`Gemini API Error: ${error?.message || 'Unknown error'}`);
     }
 }

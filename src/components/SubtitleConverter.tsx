@@ -11,6 +11,7 @@ import { UploadCloud, CheckCircle2, AlertCircle, FileText, Settings2, Download, 
 export function SubtitleConverter() {
     const [file, setFile] = useState<File | null>(null);
     const [isTranslating, setIsTranslating] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
     const [progress, setProgress] = useState(0);
     const [resultSrt, setResultSrt] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -18,9 +19,36 @@ export function SubtitleConverter() {
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            setFile(e.target.files[0]);
-            setResultSrt(null);
-            setError(null);
+            handleNewFile(e.target.files[0]);
+        }
+    };
+
+    const handleNewFile = (newFile: File) => {
+        // Quick validate if it's an SRT
+        if (!newFile.name.endsWith('.srt')) {
+            setError("Please upload a valid .srt file.");
+            return;
+        }
+        setFile(newFile);
+        setResultSrt(null);
+        setError(null);
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleNewFile(e.dataTransfer.files[0]);
         }
     };
 
@@ -107,8 +135,11 @@ export function SubtitleConverter() {
                     <div className="space-y-3">
                         <Label className="text-foreground font-semibold" htmlFor="file">1. Upload SRT File</Label>
                         <div
-                            className="group relative border border-dashed border-border hover:border-primary/50 transition-all duration-300 rounded-xl p-10 flex flex-col items-center justify-center bg-background/50 cursor-pointer overflow-hidden"
+                            className={`group relative border border-dashed hover:border-primary/50 transition-all duration-300 rounded-xl p-10 flex flex-col items-center justify-center bg-background/50 cursor-pointer overflow-hidden ${isDragging ? 'border-primary bg-primary/10' : 'border-border'}`}
                             onClick={() => fileInputRef.current?.click()}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
                         >
                             <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                             <input
