@@ -4,10 +4,11 @@ import { translateSubtitlesToSinhala } from '@/lib/gemini';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import { uploadToS3 } from '@/lib/s3';
 
 export async function POST(request: Request) {
     try {
-        const { srtContent } = await request.json();
+        const { srtContent, fileName = 'upload.srt' } = await request.json();
 
         if (!srtContent || typeof srtContent !== 'string') {
             return NextResponse.json({ error: 'Invalid or missing srtContent' }, { status: 400 });
@@ -48,30 +49,40 @@ export async function POST(request: Request) {
         // 5. Build final SRT string
         const finalSrt = buildSRT(translatedBlocks);
 
-        // 6. DB Tracking
+        // 6. DB Tracking & S3 Upload
         const session = await getServerSession(authOptions);
 
-        // NOTE: In production you would upload `srtContent` and `finalSrt` to S3 / Supabase Storage
-        // For this example, if the user is authenticated, we log the job with strings in DB or just paths
         if (session?.user && (session.user as any).id) {
             try {
+                const userId = (session.user as any).id;
+                const timestamp = Date.now();
+
+                // Upload original to S3
+                const originalKey = `uploads/${userId}/${timestamp}-original-${fileName}`;
+                await uploadToS3(originalKey, srtContent, 'text/plain');
+
+                // Upload translated to S3
+                const translatedKey = `uploads/${userId}/${timestamp}-translated-${fileName}`;
+                await uploadToS3(translatedKey, finalSrt, 'text/plain');
+
                 await prisma.subtitleJob.create({
                     data: {
-                        userId: (session.user as any).id,
-                        originalFileName: 'upload.srt',
+                        userId: userId,
+                        originalFileName: fileName,
                         sourceLanguage: 'English',
                         targetLanguage: 'Sinhala',
                         status: 'SUCCESS',
                         jobFile: {
                             create: {
-                                originalFilePath: 'stored_in_cache', // MOCK storage URL
-                                translatedFilePath: 'stored_in_cache', // MOCK storage URL
+                                originalFilePath: originalKey,
+                                translatedFilePath: translatedKey,
                             }
                         }
                     }
                 });
             } catch (dbErr) {
-                console.error('Failed to log job:', dbErr);
+                console.error('Failed to log job or upload to S3:', dbErr);
+                // We don't throw here to ensure the user still gets their translated file in the UI immediately
             }
         }
 

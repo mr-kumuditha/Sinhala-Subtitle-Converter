@@ -36,11 +36,10 @@ export function SubtitleConverter() {
 
             setProgress(30);
 
-            // We send it to an API route to handle parsing, translation and assembling.
             const response = await fetch('/api/translate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ srtContent: text }),
+                body: JSON.stringify({ srtContent: text, fileName: file.name }),
             });
 
             if (!response.ok) {
