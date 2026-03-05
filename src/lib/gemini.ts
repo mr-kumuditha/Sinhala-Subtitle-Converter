@@ -2,7 +2,8 @@ import { GoogleGenAI } from '@google/genai';
 
 export async function translateSubtitlesToSinhala(chunks: string[]): Promise<string[]> {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || 'default' });
-    const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    const envModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    const model = envModel.includes('1.5') ? 'gemini-2.5-flash' : envModel;
 
     const prompt = `
 Translate these English subtitle chunks into Sinhala (si-LK). 
@@ -26,8 +27,8 @@ ${chunks.map((c, i) => `[CHUNK ${i}]\n${c}`).join('\n\n')}
         const output = response.text || '';
         const outputChunks = output
             .split('---CHUNK_BOUNDARY---')
-            .map(c => c.replace(/\[CHUNK \d+\]/g, '').trim())
-            .filter(c => c.length > 0);
+            .map((c: string) => c.replace(/\[CHUNK \d+\]/g, '').trim())
+            .filter((c: string) => c.length > 0);
 
         if (outputChunks.length !== chunks.length) {
             console.warn(`Mismatch in chunk count. Expected ${chunks.length}, got ${outputChunks.length}.`);
