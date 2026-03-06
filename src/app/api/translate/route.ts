@@ -27,8 +27,8 @@ export async function POST(request: Request) {
         // 2. Extract text chunks to translate
         const textsToTranslate = blocks.map(b => b.text);
 
-        // 3. Translate in batches (e.g. 150 chunks per batch to minimize API requests and respect free tier quotas)
-        const BATCH_SIZE = 150;
+        // 3. Translate in batches (e.g. 400 chunks per batch to process quickly and bypass serverless timeouts)
+        const BATCH_SIZE = 400;
         const translatedTexts: string[] = [];
 
         for (let i = 0; i < textsToTranslate.length; i += BATCH_SIZE) {
@@ -40,11 +40,6 @@ export async function POST(request: Request) {
                 console.warn(`Batch mismatch: Expected ${batch.length}, got ${translatedBatch.length}. Trying to recover...`);
             }
             translatedTexts.push(...translatedBatch);
-
-            // Respect rate limits by adding a delay between batches if there are more remaining
-            if (i + BATCH_SIZE < textsToTranslate.length) {
-                await delay(3500); // 3.5 second delay
-            }
         }
 
         // 4. Re-assemble SRT blocks
