@@ -6,6 +6,10 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { uploadToS3 } from '@/lib/s3';
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+export const maxDuration = 60; // Max duration for Vercel Hobby plan
+
 export async function POST(request: Request) {
     try {
         const { srtContent, fileName = 'upload.srt' } = await request.json();
@@ -23,8 +27,8 @@ export async function POST(request: Request) {
         // 2. Extract text chunks to translate
         const textsToTranslate = blocks.map(b => b.text);
 
-        // 3. Translate in batches (e.g. 50 chunks per batch to respect API limits & accuracy limits)
-        const BATCH_SIZE = 40;
+        // 3. Translate in batches (e.g. 150 chunks per batch to minimize API requests and respect free tier quotas)
+        const BATCH_SIZE = 150;
         const translatedTexts: string[] = [];
 
         for (let i = 0; i < textsToTranslate.length; i += BATCH_SIZE) {
@@ -36,6 +40,11 @@ export async function POST(request: Request) {
                 console.warn(`Batch mismatch: Expected ${batch.length}, got ${translatedBatch.length}. Trying to recover...`);
             }
             translatedTexts.push(...translatedBatch);
+
+            // Respect rate limits by adding a delay between batches if there are more remaining
+            if (i + BATCH_SIZE < textsToTranslate.length) {
+                await delay(3500); // 3.5 second delay
+            }
         }
 
         // 4. Re-assemble SRT blocks
