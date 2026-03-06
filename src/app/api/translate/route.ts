@@ -33,11 +33,15 @@ export async function POST(request: Request) {
 
         for (let i = 0; i < textsToTranslate.length; i += BATCH_SIZE) {
             const batch = textsToTranslate.slice(i, i + BATCH_SIZE);
-            const translatedBatch = await translateSubtitlesToSinhala(batch);
+
+            // This returns an object: { translatedChunks: string[], provider: 'gemini' | 'langbly' }
+            const result = await translateSubtitlesToSinhala(batch);
+            const translatedBatch = result.translatedChunks;
+            const providerUsed = result.provider;
 
             // Safety check: ensure lengths match
             if (translatedBatch.length !== batch.length) {
-                console.warn(`Batch mismatch: Expected ${batch.length}, got ${translatedBatch.length}. Trying to recover...`);
+                console.warn(`Batch mismatch (${providerUsed}): Expected ${batch.length}, got ${translatedBatch.length}. Trying to recover...`);
             }
             translatedTexts.push(...translatedBatch);
         }
@@ -90,7 +94,10 @@ export async function POST(request: Request) {
             }
         }
 
-        return NextResponse.json({ translatedSrt: finalSrt }, { status: 200 });
+        return NextResponse.json({
+            translatedSrt: finalSrt,
+            provider: 'hybrid' // or you can pass back an array of providers used 
+        }, { status: 200 });
 
     } catch (error: any) {
         console.error('Translation Next Server Error:', error);
