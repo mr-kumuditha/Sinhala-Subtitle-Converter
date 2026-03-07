@@ -60,12 +60,29 @@ async function runLangblyTranslation(chunks: string[]): Promise<string[]> {
         throw new Error("LANGLY_API_KEY is not defined in environment variables");
     }
 
-    const SUB_BATCH_SIZE = 40;
     const finalChunks: string[] = [];
     const MAX_RETRIES = 3;
+    const MAX_ITEMS = 40;
+    const MAX_CHARS = 10000;
 
-    for (let i = 0; i < chunks.length; i += SUB_BATCH_SIZE) {
-        const subBatch = chunks.slice(i, i + SUB_BATCH_SIZE);
+    // Segment incoming chunks by both array length and string weight
+    const subBatches: string[][] = [];
+    let currentBatch: string[] = [];
+    let currentCharCount = 0;
+
+    for (const chunk of chunks) {
+        if (currentBatch.length >= MAX_ITEMS || currentCharCount + chunk.length > MAX_CHARS) {
+            if (currentBatch.length > 0) subBatches.push([...currentBatch]);
+            currentBatch = [];
+            currentCharCount = 0;
+        }
+        currentBatch.push(chunk);
+        currentCharCount += chunk.length;
+    }
+    if (currentBatch.length > 0) subBatches.push(currentBatch);
+
+    for (let i = 0; i < subBatches.length; i++) {
+        const subBatch = subBatches[i];
 
         // --- Throttle requests to respect Langbly load balancers ---
         if (i > 0) {
@@ -95,15 +112,15 @@ async function runLangblyTranslation(chunks: string[]): Promise<string[]> {
 
             lastErrText = await response.text();
 
-            // Only retry on 503 Service Unavailable or 429 Too Many Requests
-            if (response.status === 503 || response.status === 429) {
+            // Only retry on 503, 502, 504 or 429
+            if ([503, 502, 504, 429].includes(response.status)) {
                 console.warn(`[Translate] Langbly ${response.status} on attempt ${attempt}. Retrying...`);
                 if (attempt < MAX_RETRIES) {
                     const backoffMs = Math.min(2000 * Math.pow(2, attempt - 1), 8000);
                     await new Promise(resolve => setTimeout(resolve, backoffMs));
                 }
             } else {
-                // If it's a 400 Bad Request or 401 Auth, do not retry
+                // Hard fail on 400 Bad Request
                 throw new Error(`Langbly API error: ${response.status} ${lastErrText}`);
             }
         }
