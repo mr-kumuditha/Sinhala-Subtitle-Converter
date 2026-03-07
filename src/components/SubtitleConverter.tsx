@@ -133,10 +133,10 @@ export function SubtitleConverter() {
         const a = document.createElement('a');
         a.href = url;
 
-        let outName = 'Subtitle_Sisub.srt';
+        let outName = '(Sisub)Subtitle.srt';
         if (file && file.name) {
             const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
-            outName = `${nameWithoutExt}_Sisub.srt`;
+            outName = `(Sisub)${nameWithoutExt}.srt`;
         }
 
         a.download = outName;
