@@ -12,6 +12,7 @@ import { LRUCache } from 'lru-cache'; // 2GB VPS Memory Fix
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const maxDuration = 60; // Max duration for Vercel Hobby plan
+export const dynamic = 'force-dynamic'; // Force Next.js real-time streaming
 
 // LRU RAM Cache: Prevents infinite Map memory leaks on 2GB VPS (Max 5,000 sentences)
 const translationCache = new LRUCache<string, string>({
@@ -42,6 +43,8 @@ export async function POST(request: Request) {
                 }, 15000); // 15 seconds ping
 
                 try {
+                    // Send 2048 bytes of whitespace immediately to forcefully flush Next.js/Nginx proxy buffers
+                    controller.enqueue(encoder.encode(' '.repeat(2048) + '\n'));
                     controller.enqueue(encoder.encode(JSON.stringify({ progress: 5 }) + '\n'));
 
                     // 1. Parse SRT to blocks
@@ -226,6 +229,7 @@ export async function POST(request: Request) {
                 'Content-Type': 'application/x-ndjson',
                 'Cache-Control': 'no-cache, no-transform',
                 'Connection': 'keep-alive',
+                'X-Accel-Buffering': 'no',
             },
         });
     } catch (error: any) {
