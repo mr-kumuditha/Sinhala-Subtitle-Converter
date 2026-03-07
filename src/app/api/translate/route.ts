@@ -34,7 +34,8 @@ export async function POST(request: Request) {
                 // --- Keep-alive Ping to prevent Nginx 60s proxy timeout drops ---
                 const keepAlive = setInterval(() => {
                     try {
-                        controller.enqueue(encoder.encode(' \n'));
+                        // Send 2048 bytes of whitespace to forcefully flush Nginx proxy buffers
+                        controller.enqueue(encoder.encode(' '.repeat(2048) + '\n'));
                     } catch (e) {
                         clearInterval(keepAlive);
                     }
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
                     for (let i = 0; i < blocks.length; i++) {
                         // 2GB VPS Garbage Collection Yield: Breathe every 1000 lines so V8 cleans heap
                         if (i > 0 && i % 1000 === 0) {
-                            await new Promise(r => setImmediate(r));
+                            await new Promise(r => setTimeout(r, 0));
                         }
 
                         // 1. Formatting Sanitizer: Strip problematic music tokens
@@ -140,7 +141,7 @@ export async function POST(request: Request) {
                         for (let rIdx = 0; rIdx < completedResults.length; rIdx++) {
                             // 2GB VPS Garbage Collection Yield: Breathe every 10 batches array reconstruction
                             if (rIdx > 0 && rIdx % 10 === 0) {
-                                await new Promise(r => setImmediate(r));
+                                await new Promise(r => setTimeout(r, 0));
                             }
 
                             const res = completedResults[rIdx];

@@ -52,54 +52,7 @@ async function translateWithGemini(chunks: string[]): Promise<string[]> {
     throw new Error('Gemini completely failed after max retries.');
 }
 
-// --- Worker 2: DeepL ---
-async function translateWithDeepL(chunks: string[]): Promise<string[]> {
-    const apiKey = process.env.DEEPL_API_KEY;
-    if (!apiKey) throw new Error("DEEPL_API_KEY is missing.");
-
-    // Determine Free vs Pro API endpoint
-    const endpoint = apiKey.endsWith(':fx') ? 'api-free.deepl.com' : 'api.deepl.com';
-
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-        try {
-            const body = {
-                text: chunks,
-                target_lang: 'SI', // Sinhala code
-                tag_handling: 'html' // Preserve <i> and <b> tags!
-            };
-
-            const res = await fetch(`https://${endpoint}/v2/translate`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `DeepL-Auth-Key ${apiKey}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(body)
-            });
-
-            if (res.ok) {
-                const data = await res.json();
-                if (data.translations && Array.isArray(data.translations)) {
-                    return data.translations.map((t: any) => t.text);
-                }
-            }
-
-            const errText = await res.text();
-            console.warn(`[DeepL] Attempt ${attempt} Status ${res.status}:`, errText);
-
-            if (res.status === 429 || res.status >= 500) {
-                if (attempt < MAX_RETRIES) await delayExponential(attempt);
-            } else {
-                break; // Hard fail on 400 Bad Request
-            }
-        } catch (err: any) {
-            console.warn(`[DeepL] Attempt ${attempt} exception:`, err.message);
-            if (attempt < MAX_RETRIES) await delayExponential(attempt);
-        }
-    }
-    throw new Error('DeepL completely failed after max retries.');
-}
-
+// --- Worker 2 (Removed DeepL, unsupported language) ---
 // --- Worker 3: Langbly ---
 async function translateWithLangbly(chunks: string[]): Promise<string[]> {
     const apiKey = process.env.LANGLY_API_KEY;
@@ -154,18 +107,10 @@ export async function processBatchParallel(batch: TranslationBatch): Promise<Tra
         const result = await translateWithGemini(batch.chunks);
         return { index: batch.index, translatedChunks: result, provider: 'gemini' };
     } catch (e: any) {
-        console.warn(`[Batch ${batch.index}] Gemini exhausted. Routing to DeepL...`);
+        console.warn(`[Batch ${batch.index}] Gemini exhausted. Routing to Langbly...`);
     }
 
-    // 2. Secondary: DeepL
-    try {
-        const result = await translateWithDeepL(batch.chunks);
-        return { index: batch.index, translatedChunks: result, provider: 'deepl' };
-    } catch (e: any) {
-        console.warn(`[Batch ${batch.index}] DeepL exhausted. Routing to Langbly...`);
-    }
-
-    // 3. Tertiary: Langbly
+    // 2. Secondary: Langbly
     try {
         const result = await translateWithLangbly(batch.chunks);
         return { index: batch.index, translatedChunks: result, provider: 'langbly' };
@@ -173,7 +118,7 @@ export async function processBatchParallel(batch: TranslationBatch): Promise<Tra
         console.error(`[Batch ${batch.index}] ALL WORKERS FAILED. Yielding Error Chunks.`);
     }
 
-    // 4. Catastrophic Failure: Return Original English so stream survives
+    // 3. Catastrophic Failure: Return Original English so stream survives
     const failedChunks = batch.chunks.map(c => `[TRANSLATION_FAILED] ${c}`);
     return { index: batch.index, translatedChunks: failedChunks, provider: 'failed' };
 }
