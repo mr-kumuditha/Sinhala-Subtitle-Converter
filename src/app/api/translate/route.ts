@@ -12,6 +12,9 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const maxDuration = 60; // Max duration for Vercel Hobby plan
 
+// Global RAM Cache surviving warm starts (Free Tier optimization)
+const translationCache = new Map<string, string>();
+
 export async function POST(request: Request) {
     try {
         const { srtContent, fileName = 'upload.srt' } = await request.json();
@@ -45,57 +48,114 @@ export async function POST(request: Request) {
                         return;
                     }
 
-                    // 2. Extract text chunks to translate
-                    const textsToTranslate = blocks.map(b => b.text);
-
-                    // 3. Translate using the Parallel Engine (Batch size 40)
-                    const BATCH_SIZE = 40;
-                    const batches: TranslationBatch[] = [];
-                    for (let i = 0; i < textsToTranslate.length; i += BATCH_SIZE) {
-                        batches.push({
-                            index: i / BATCH_SIZE,
-                            chunks: textsToTranslate.slice(i, i + BATCH_SIZE)
-                        });
-                    }
-
+                    // --- Pre-Processing: Heuristics, Cache, & Deduplication ---
                     controller.enqueue(encoder.encode(JSON.stringify({ progress: 10 }) + '\n'));
 
-                    let completedBatches = 0;
-                    const totalBatches = batches.length;
+                    const finalTranslations: string[] = new Array(blocks.length).fill('');
+                    const uniquePhrases = new Set<string>();
+                    const phraseToIndices = new Map<string, number[]>();
 
-                    // Throttle parallel workers to max 5 simultaneous to avoid instantaneous API rate-limiting
-                    const limit = pLimit(5);
+                    for (let i = 0; i < blocks.length; i++) {
+                        // 1. Formatting Sanitizer: Strip problematic music tokens
+                        let text = blocks[i].text.replace(/♪|♫|♬/g, '').trim();
 
-                    // Dispatch all workers concurrently
-                    const parallelJobs = batches.map(batch => limit(async () => {
-                        const translatedBatch = await processBatchParallel(batch);
-                        completedBatches++;
+                        // 2. Heuristic Noise Squelcher: Skip [Music], (Applause)
+                        if (/^\[.*?\]$/.test(text) || /^\(.*?\)$/.test(text) || text.length === 0) {
+                            finalTranslations[i] = text; // Keep in English
+                            continue;
+                        }
 
-                        // Calculate progress from 10% to 85% dynamically as workers finish
-                        const currentProgress = 10 + Math.floor((completedBatches / totalBatches) * 75);
-                        controller.enqueue(encoder.encode(JSON.stringify({ progress: currentProgress }) + '\n'));
+                        // 3. Global RAM Cache Hit
+                        if (translationCache.has(text)) {
+                            finalTranslations[i] = translationCache.get(text)!;
+                            continue;
+                        }
 
-                        return translatedBatch;
-                    }));
-
-                    // Wait for all workers to finish their fallback routes
-                    const completedResults = await Promise.all(parallelJobs);
-
-                    // 4. Sort batches back into chronological order since they finished asynchronously
-                    completedResults.sort((a, b) => a.index - b.index);
-
-                    const translatedTexts: string[] = [];
-                    for (const res of completedResults) {
-                        translatedTexts.push(...res.translatedChunks);
+                        // 4. Register Unique Phrase for Translation Loop
+                        uniquePhrases.add(text);
+                        if (!phraseToIndices.has(text)) {
+                            phraseToIndices.set(text, []);
+                        }
+                        phraseToIndices.get(text)!.push(i);
                     }
 
-                    // 5. Re-assemble SRT blocks
+                    const textsToTranslate = Array.from(uniquePhrases);
+
+                    // --- Advanced Weight-Based Batching Algorithm ---
+                    const batches: TranslationBatch[] = [];
+                    const MAX_ITEMS = 50;
+                    const MAX_CHARS = 2000;
+
+                    let currentBatchChunks: string[] = [];
+                    let currentCharCount = 0;
+                    let batchIndex = 0;
+
+                    for (const text of textsToTranslate) {
+                        if (currentBatchChunks.length >= MAX_ITEMS || currentCharCount + text.length > MAX_CHARS) {
+                            if (currentBatchChunks.length > 0) {
+                                batches.push({ index: batchIndex++, chunks: [...currentBatchChunks] });
+                            }
+                            currentBatchChunks = [];
+                            currentCharCount = 0;
+                        }
+                        currentBatchChunks.push(text);
+                        currentCharCount += text.length;
+                    }
+                    if (currentBatchChunks.length > 0) {
+                        batches.push({ index: batchIndex++, chunks: currentBatchChunks });
+                    }
+
+                    // If absolutely everything was cached or dropped, skip APIs entirely
+                    if (batches.length > 0) {
+                        let completedBatches = 0;
+                        const totalBatches = batches.length;
+
+                        // Max 6 parallel workers to avoid instant DeepL/Langbly IP bans
+                        const limit = pLimit(6);
+
+                        // Dispatch all workers concurrently
+                        const parallelJobs = batches.map(batch => limit(async () => {
+                            const translatedBatch = await processBatchParallel(batch);
+                            completedBatches++;
+
+                            // Calculate progress from 10% to 85% dynamically as workers finish
+                            const currentProgress = 10 + Math.floor((completedBatches / totalBatches) * 75);
+                            controller.enqueue(encoder.encode(JSON.stringify({ progress: currentProgress }) + '\n'));
+
+                            return translatedBatch;
+                        }));
+
+                        // Wait for all workers to finish their fallback routes
+                        const completedResults = await Promise.all(parallelJobs);
+
+                        // --- Post-Processing: Cache Hydration & Reconstruction ---
+                        for (const res of completedResults) {
+                            const originalChunks = batches[res.index].chunks;
+                            const translatedChunks = res.translatedChunks;
+
+                            for (let j = 0; j < originalChunks.length; j++) {
+                                const originalText = originalChunks[j];
+                                const translatedText = translatedChunks[j] || originalText; // Fallback mapping
+
+                                // Hydrate Global Cache for next subtitle file
+                                translationCache.set(originalText, translatedText);
+
+                                // Distribute to all identical instances in this file
+                                const indices = phraseToIndices.get(originalText) || [];
+                                for (const idx of indices) {
+                                    finalTranslations[idx] = translatedText;
+                                }
+                            }
+                        }
+                    } else {
+                        // Fast-path: 100% Cache Hit
+                        controller.enqueue(encoder.encode(JSON.stringify({ progress: 85 }) + '\n'));
+                    }
+
+                    // --- Assembly ---
                     controller.enqueue(encoder.encode(JSON.stringify({ progress: 90 }) + '\n'));
                     const translatedBlocks = blocks.map((block, i) => {
-                        return {
-                            ...block,
-                            text: translatedTexts[i] || block.text,
-                        };
+                        return { ...block, text: finalTranslations[i] };
                     });
 
                     // 6. Build final SRT string
