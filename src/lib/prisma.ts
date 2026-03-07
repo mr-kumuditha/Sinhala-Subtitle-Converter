@@ -1,4 +1,8 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client'
+
+const prismaClientSingleton = () => {
+    return new PrismaClient()
+};
 
 declare global {
     // allow global `var` declarations
@@ -6,11 +10,7 @@ declare global {
     var prisma: PrismaClient | undefined;
 }
 
-export const prisma =
-    global.prisma ??
-    new PrismaClient({
-        log: process.env.NODE_ENV === 'development' ? ['query'] : [],
-    });
+export const prisma = global.prisma ?? prismaClientSingleton();
 
 if (process.env.NODE_ENV !== 'production') {
     global.prisma = prisma;
