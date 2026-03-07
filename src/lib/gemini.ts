@@ -60,29 +60,56 @@ async function runLangblyTranslation(chunks: string[]): Promise<string[]> {
         throw new Error("LANGLY_API_KEY is not defined in environment variables");
     }
 
-    // Langbly enforces a strict limit on the number of `q` items per request.
-    // We sub-batch the incoming chunks (which might be 200 items) into chunks of ~40.
     const SUB_BATCH_SIZE = 40;
     const finalChunks: string[] = [];
+    const MAX_RETRIES = 3;
 
     for (let i = 0; i < chunks.length; i += SUB_BATCH_SIZE) {
         const subBatch = chunks.slice(i, i + SUB_BATCH_SIZE);
 
-        const response = await fetch(`https://api.langbly.com/language/translate/v2?key=${apiKey}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                target: 'si',
-                q: subBatch,
-                format: 'html' // Preserves <i> and <b> tags exactly like Google V2
-            })
-        });
+        // --- Throttle requests to respect Langbly load balancers ---
+        if (i > 0) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
 
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`Langbly API error: ${response.status} ${errText}`);
+        let response: Response | null = null;
+        let lastErrText = '';
+
+        // --- Exponential Backoff Retry Loop ---
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            response = await fetch(`https://api.langbly.com/language/translate/v2?key=${apiKey}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    target: 'si',
+                    q: subBatch,
+                    format: 'html' // Preserves <i> and <b> tags exactly like Google V2
+                })
+            });
+
+            if (response.ok) {
+                break; // Success! Break out of the retry loop
+            }
+
+            lastErrText = await response.text();
+
+            // Only retry on 503 Service Unavailable or 429 Too Many Requests
+            if (response.status === 503 || response.status === 429) {
+                console.warn(`[Translate] Langbly ${response.status} on attempt ${attempt}. Retrying...`);
+                if (attempt < MAX_RETRIES) {
+                    const backoffMs = Math.min(2000 * Math.pow(2, attempt - 1), 8000);
+                    await new Promise(resolve => setTimeout(resolve, backoffMs));
+                }
+            } else {
+                // If it's a 400 Bad Request or 401 Auth, do not retry
+                throw new Error(`Langbly API error: ${response.status} ${lastErrText}`);
+            }
+        }
+
+        if (!response || !response.ok) {
+            throw new Error(`Langbly API hit max retries. Last error: ${response?.status || 'Unknown'} ${lastErrText}`);
         }
 
         const data = await response.json();
