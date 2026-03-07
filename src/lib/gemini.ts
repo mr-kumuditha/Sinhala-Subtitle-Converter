@@ -60,18 +60,15 @@ async function runLangblyTranslation(chunks: string[]): Promise<string[]> {
         throw new Error("LANGLY_API_KEY is not defined in environment variables");
     }
 
-    // Example Langbly integration (assuming a standard REST completion endpoint)
-    // Replace with actual Langbly SDK/Endpoint if different
-    const response = await fetch('https://api.langbly.com/v1/translate', {
+    const response = await fetch(`https://api.langbly.com/language/translate/v2?key=${apiKey}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-            target_language: 'si',
-            texts: chunks,
-            context: 'These are movie subtitles. Preserve formatting like <i> and <b>.'
+            target: 'si',
+            q: chunks,
+            format: 'html' // Preserves <i> and <b> tags exactly like Google V2
         })
     });
 
@@ -81,12 +78,13 @@ async function runLangblyTranslation(chunks: string[]): Promise<string[]> {
     }
 
     const data = await response.json();
-    // Assuming Langbly returns { translations: ["line 1", "line 2"] }
-    if (!data.translations || !Array.isArray(data.translations)) {
+
+    // Unpack Google Translate V2 identical payload structure
+    if (!data.data || !data.data.translations || !Array.isArray(data.data.translations)) {
         throw new Error("Invalid response format from Langbly");
     }
 
-    const outputChunks = data.translations;
+    const outputChunks = data.data.translations.map((t: any) => t.translatedText);
 
     const finalChunks = [];
     for (let i = 0; i < chunks.length; i++) {
