@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
     try {
         const { name, email, password } = await req.json();
 
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
             { message: 'User created successfully', user: { id: newUser.id, email: newUser.email, name: newUser.name } },
             { status: 201 }
         );
-    } catch (error) {
+    } catch (error: any) {
         console.error('Registration error:', error);
         return NextResponse.json(
             { message: 'An error occurred during registration' },
