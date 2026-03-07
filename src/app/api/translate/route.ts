@@ -5,6 +5,8 @@ import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { uploadToS3 } from '@/lib/s3';
+import { processBatchParallel, TranslationBatch } from '@/lib/translator-queue';
+import pLimit from 'p-limit';
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -46,28 +48,48 @@ export async function POST(request: Request) {
                     // 2. Extract text chunks to translate
                     const textsToTranslate = blocks.map(b => b.text);
 
-                    // 3. Translate in smaller batches to ensure stream progress updates frequently
-                    const BATCH_SIZE = 200;
-                    const translatedTexts: string[] = [];
-                    const totalBatches = Math.ceil(textsToTranslate.length / BATCH_SIZE);
+                    // 3. Translate using the Parallel Engine (Batch size 40)
+                    const BATCH_SIZE = 40;
+                    const batches: TranslationBatch[] = [];
+                    for (let i = 0; i < textsToTranslate.length; i += BATCH_SIZE) {
+                        batches.push({
+                            index: i / BATCH_SIZE,
+                            chunks: textsToTranslate.slice(i, i + BATCH_SIZE)
+                        });
+                    }
 
                     controller.enqueue(encoder.encode(JSON.stringify({ progress: 10 }) + '\n'));
 
-                    for (let i = 0; i < textsToTranslate.length; i += BATCH_SIZE) {
-                        const batch = textsToTranslate.slice(i, i + BATCH_SIZE);
-                        const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+                    let completedBatches = 0;
+                    const totalBatches = batches.length;
 
-                        const result = await translateSubtitlesToSinhala(batch);
-                        const translatedBatch = result.translatedChunks;
+                    // Throttle parallel workers to max 5 simultaneous to avoid instantaneous API rate-limiting
+                    const limit = pLimit(5);
 
-                        translatedTexts.push(...translatedBatch);
+                    // Dispatch all workers concurrently
+                    const parallelJobs = batches.map(batch => limit(async () => {
+                        const translatedBatch = await processBatchParallel(batch);
+                        completedBatches++;
 
-                        // Calculate progress from 10% to 85%
-                        const currentProgress = 10 + Math.floor((batchNum / totalBatches) * 75);
+                        // Calculate progress from 10% to 85% dynamically as workers finish
+                        const currentProgress = 10 + Math.floor((completedBatches / totalBatches) * 75);
                         controller.enqueue(encoder.encode(JSON.stringify({ progress: currentProgress }) + '\n'));
+
+                        return translatedBatch;
+                    }));
+
+                    // Wait for all workers to finish their fallback routes
+                    const completedResults = await Promise.all(parallelJobs);
+
+                    // 4. Sort batches back into chronological order since they finished asynchronously
+                    completedResults.sort((a, b) => a.index - b.index);
+
+                    const translatedTexts: string[] = [];
+                    for (const res of completedResults) {
+                        translatedTexts.push(...res.translatedChunks);
                     }
 
-                    // 4. Re-assemble SRT blocks
+                    // 5. Re-assemble SRT blocks
                     controller.enqueue(encoder.encode(JSON.stringify({ progress: 90 }) + '\n'));
                     const translatedBlocks = blocks.map((block, i) => {
                         return {
@@ -76,11 +98,11 @@ export async function POST(request: Request) {
                         };
                     });
 
-                    // 5. Build final SRT string
+                    // 6. Build final SRT string
                     const finalSrt = buildSRT(translatedBlocks);
                     controller.enqueue(encoder.encode(JSON.stringify({ progress: 95 }) + '\n'));
 
-                    // 6. DB Tracking & S3 Upload
+                    // 7. DB Tracking & S3 Upload
                     if (session?.user && (session.user as any).id) {
                         try {
                             const userId = (session.user as any).id;
