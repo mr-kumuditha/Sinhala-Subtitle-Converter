@@ -23,6 +23,15 @@ export async function POST(request: Request) {
 
         const stream = new ReadableStream({
             async start(controller) {
+                // --- Keep-alive Ping to prevent Nginx 60s proxy timeout drops ---
+                const keepAlive = setInterval(() => {
+                    try {
+                        controller.enqueue(encoder.encode(' \n'));
+                    } catch (e) {
+                        clearInterval(keepAlive);
+                    }
+                }, 15000); // 15 seconds ping
+
                 try {
                     controller.enqueue(encoder.encode(JSON.stringify({ progress: 5 }) + '\n'));
 
@@ -37,8 +46,8 @@ export async function POST(request: Request) {
                     // 2. Extract text chunks to translate
                     const textsToTranslate = blocks.map(b => b.text);
 
-                    // 3. Translate in batches
-                    const BATCH_SIZE = 400;
+                    // 3. Translate in smaller batches to ensure stream progress updates frequently
+                    const BATCH_SIZE = 200;
                     const translatedTexts: string[] = [];
                     const totalBatches = Math.ceil(textsToTranslate.length / BATCH_SIZE);
 
@@ -104,8 +113,10 @@ export async function POST(request: Request) {
                     }
 
                     controller.enqueue(encoder.encode(JSON.stringify({ translatedSrt: finalSrt, progress: 100 }) + '\n'));
+                    clearInterval(keepAlive);
                     controller.close();
                 } catch (streamErr: any) {
+                    clearInterval(keepAlive);
                     console.error("Stream Error:", streamErr);
                     controller.enqueue(encoder.encode(JSON.stringify({ error: streamErr.message || "An error occurred during translation" }) + '\n'));
                     controller.close();

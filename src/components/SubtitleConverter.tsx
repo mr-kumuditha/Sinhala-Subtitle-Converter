@@ -109,6 +109,19 @@ export function SubtitleConverter() {
                 }
             }
 
+            if (buffer.trim()) {
+                try {
+                    const parsed = JSON.parse(buffer);
+                    if (parsed.progress !== undefined) setProgress(parsed.progress);
+                    if (parsed.translatedSrt) finalSrt = parsed.translatedSrt;
+                    if (parsed.error) throw new Error(parsed.error);
+                } catch (e) {
+                    if (e instanceof Error && !e.message.includes('Unexpected')) {
+                        throw e;
+                    }
+                }
+            }
+
             if (finalSrt) {
                 setProgress(100);
                 setResultSrt(finalSrt);
