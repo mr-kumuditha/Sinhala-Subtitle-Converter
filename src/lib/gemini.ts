@@ -60,35 +60,43 @@ async function runLangblyTranslation(chunks: string[]): Promise<string[]> {
         throw new Error("LANGLY_API_KEY is not defined in environment variables");
     }
 
-    const response = await fetch(`https://api.langbly.com/language/translate/v2?key=${apiKey}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            target: 'si',
-            q: chunks,
-            format: 'html' // Preserves <i> and <b> tags exactly like Google V2
-        })
-    });
+    // Langbly enforces a strict limit on the number of `q` items per request.
+    // We sub-batch the incoming chunks (which might be 200 items) into chunks of ~40.
+    const SUB_BATCH_SIZE = 40;
+    const finalChunks: string[] = [];
 
-    if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Langbly API error: ${response.status} ${errText}`);
-    }
+    for (let i = 0; i < chunks.length; i += SUB_BATCH_SIZE) {
+        const subBatch = chunks.slice(i, i + SUB_BATCH_SIZE);
 
-    const data = await response.json();
+        const response = await fetch(`https://api.langbly.com/language/translate/v2?key=${apiKey}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                target: 'si',
+                q: subBatch,
+                format: 'html' // Preserves <i> and <b> tags exactly like Google V2
+            })
+        });
 
-    // Unpack Google Translate V2 identical payload structure
-    if (!data.data || !data.data.translations || !Array.isArray(data.data.translations)) {
-        throw new Error("Invalid response format from Langbly");
-    }
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Langbly API error: ${response.status} ${errText}`);
+        }
 
-    const outputChunks = data.data.translations.map((t: any) => t.translatedText);
+        const data = await response.json();
 
-    const finalChunks = [];
-    for (let i = 0; i < chunks.length; i++) {
-        finalChunks.push(outputChunks[i] || chunks[i]);
+        // Unpack Google Translate V2 identical payload structure
+        if (!data.data || !data.data.translations || !Array.isArray(data.data.translations)) {
+            throw new Error("Invalid response format from Langbly");
+        }
+
+        const outputChunks = data.data.translations.map((t: any) => t.translatedText);
+
+        for (let j = 0; j < subBatch.length; j++) {
+            finalChunks.push(outputChunks[j] || subBatch[j]);
+        }
     }
 
     return finalChunks;
