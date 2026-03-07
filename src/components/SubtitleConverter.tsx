@@ -58,11 +58,9 @@ export function SubtitleConverter() {
         try {
             setIsTranslating(true);
             setError(null);
-            setProgress(10); // Start progress
+            setProgress(0);
 
             const text = await file.text();
-
-            setProgress(30);
 
             const response = await fetch('/api/translate', {
                 method: 'POST',
@@ -71,13 +69,52 @@ export function SubtitleConverter() {
             });
 
             if (!response.ok) {
-                throw new Error(await response.text());
+                const errText = await response.text();
+                try {
+                    const errJson = JSON.parse(errText);
+                    throw new Error(errJson.error || 'Server error');
+                } catch {
+                    throw new Error(errText);
+                }
             }
 
-            const data = await response.json();
+            if (!response.body) throw new Error("No response body");
 
-            setProgress(100);
-            setResultSrt(data.translatedSrt);
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let done = false;
+            let buffer = '';
+            let finalSrt = '';
+
+            while (!done) {
+                const { value, done: readerDone } = await reader.read();
+                done = readerDone;
+                if (value) {
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+                    for (const line of lines) {
+                        if (!line.trim()) continue;
+                        try {
+                            const parsed = JSON.parse(line);
+                            if (parsed.progress !== undefined) setProgress(parsed.progress);
+                            if (parsed.translatedSrt) finalSrt = parsed.translatedSrt;
+                            if (parsed.error) throw new Error(parsed.error);
+                        } catch (e) {
+                            if (e instanceof Error && !e.message.includes('Unexpected end of JSON input') && !e.message.includes('Unexpected token')) {
+                                throw e;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (finalSrt) {
+                setProgress(100);
+                setResultSrt(finalSrt);
+            } else {
+                throw new Error("Failed to receive translation data");
+            }
 
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'An error occurred during translation.';
@@ -95,7 +132,14 @@ export function SubtitleConverter() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `[Sinhala] ${file?.name || 'subtitles.srt'}`;
+
+        let outName = 'Subtitle_Sisub.srt';
+        if (file && file.name) {
+            const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+            outName = `${nameWithoutExt}_Sisub.srt`;
+        }
+
+        a.download = outName;
         a.click();
         URL.revokeObjectURL(url);
     };
@@ -246,8 +290,13 @@ export function SubtitleConverter() {
                                 </Button>
                             </div>
 
-                            <div className="bg-background p-5 rounded-lg border border-border text-sm font-mono text-muted-foreground h-48 overflow-y-auto whitespace-pre-wrap leading-relaxed">
-                                {resultSrt.substring(0, 800)}...
+                            <div className="flex flex-col gap-2 mt-4">
+                                <Label className="text-foreground font-semibold flex items-center gap-2">
+                                    <Eye className="w-5 h-5 text-primary" /> Subtitle Preview
+                                </Label>
+                                <div className="bg-background p-5 rounded-lg border border-border text-sm font-mono text-muted-foreground h-96 overflow-y-auto whitespace-pre-wrap leading-relaxed shadow-inner">
+                                    {resultSrt}
+                                </div>
                             </div>
                         </div>
                     )}
