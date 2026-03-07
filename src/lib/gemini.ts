@@ -13,7 +13,12 @@ export async function translateSubtitlesToSinhala(chunks: string[]): Promise<{ t
             return { translatedChunks, provider: 'langbly' };
         } catch (langblyError: any) {
             console.error('[Translate] Langbly Fallback Error:', langblyError);
-            throw new Error(`Both Gemini and Langbly failed. Last error: ${langblyError?.message || 'Unknown error'}`);
+            console.warn(`[Translate] Both Gemini and Langbly totally failed. Injecting English [TRANSLATION_FAILED] fallback.`);
+
+            // Absolute worst-case scenario: neither API works.
+            // Do NOT crash the Next.js stream. Yield original English so the rest of the movie can translate later.
+            const failedChunks = chunks.map(c => `[TRANSLATION_FAILED] ${c}`);
+            return { translatedChunks: failedChunks, provider: 'langbly' };
         }
     }
 }
@@ -86,11 +91,13 @@ async function runLangblyTranslation(chunks: string[]): Promise<string[]> {
 
         // --- Throttle requests to respect Langbly load balancers ---
         if (i > 0) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 2000));
         }
 
         let response: Response | null = null;
         let lastErrText = '';
+        let success = false;
+        let outputChunks: string[] = [];
 
         // --- Exponential Backoff Retry Loop ---
         for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -107,7 +114,12 @@ async function runLangblyTranslation(chunks: string[]): Promise<string[]> {
             });
 
             if (response.ok) {
-                break; // Success! Break out of the retry loop
+                const data = await response.json();
+                if (data.data && data.data.translations && Array.isArray(data.data.translations)) {
+                    outputChunks = data.data.translations.map((t: any) => t.translatedText);
+                    success = true;
+                    break; // Success! Break out of the retry loop
+                }
             }
 
             lastErrText = await response.text();
@@ -116,30 +128,38 @@ async function runLangblyTranslation(chunks: string[]): Promise<string[]> {
             if ([503, 502, 504, 429].includes(response.status)) {
                 console.warn(`[Translate] Langbly ${response.status} on attempt ${attempt}. Retrying...`);
                 if (attempt < MAX_RETRIES) {
-                    const backoffMs = Math.min(2000 * Math.pow(2, attempt - 1), 8000);
+                    let backoffMs = Math.min(2000 * Math.pow(2, attempt - 1), 8000);
+
+                    // Respect upstream Retry-After headers if Cloudflare/Langbly provides them
+                    const retryAfter = response.headers.get('Retry-After');
+                    if (retryAfter) {
+                        const parsedRetry = parseInt(retryAfter, 10);
+                        if (!isNaN(parsedRetry)) {
+                            backoffMs = Math.max(backoffMs, parsedRetry * 1000);
+                        }
+                    }
+
                     await new Promise(resolve => setTimeout(resolve, backoffMs));
                 }
             } else {
                 // Hard fail on 400 Bad Request
-                throw new Error(`Langbly API error: ${response.status} ${lastErrText}`);
+                console.error(`[Translate] Langbly Hard Error ${response.status}:`, lastErrText);
+                break; // Do not retry 400s
             }
         }
 
-        if (!response || !response.ok) {
-            throw new Error(`Langbly API hit max retries. Last error: ${response?.status || 'Unknown'} ${lastErrText}`);
-        }
-
-        const data = await response.json();
-
-        // Unpack Google Translate V2 identical payload structure
-        if (!data.data || !data.data.translations || !Array.isArray(data.data.translations)) {
-            throw new Error("Invalid response format from Langbly");
-        }
-
-        const outputChunks = data.data.translations.map((t: any) => t.translatedText);
-
-        for (let j = 0; j < subBatch.length; j++) {
-            finalChunks.push(outputChunks[j] || subBatch[j]);
+        // --- Partial Recovery Architecture ---
+        // If the sub-batch completely failed (max retries hit or 400 error), DO NOT CRASH.
+        // Yield the original English lines with a failure tag so the Next.js stream survives.
+        if (!success) {
+            console.error(`[Translate] Sub-batch ${i + 1}/${subBatches.length} FAILED after ${MAX_RETRIES} attempts. Falling back to English.`);
+            for (let j = 0; j < subBatch.length; j++) {
+                finalChunks.push(`[TRANSLATION_FAILED] ${subBatch[j]}`);
+            }
+        } else {
+            for (let j = 0; j < subBatch.length; j++) {
+                finalChunks.push(outputChunks[j] || subBatch[j]);
+            }
         }
     }
 
