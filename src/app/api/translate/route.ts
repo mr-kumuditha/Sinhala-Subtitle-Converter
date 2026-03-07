@@ -7,13 +7,16 @@ import { authOptions } from '@/lib/auth';
 import { uploadToS3 } from '@/lib/s3';
 import { processBatchParallel, TranslationBatch } from '@/lib/translator-queue';
 import pLimit from 'p-limit';
+import { LRUCache } from 'lru-cache'; // 2GB VPS Memory Fix
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const maxDuration = 60; // Max duration for Vercel Hobby plan
 
-// Global RAM Cache surviving warm starts (Free Tier optimization)
-const translationCache = new Map<string, string>();
+// LRU RAM Cache: Prevents infinite Map memory leaks on 2GB VPS (Max 5,000 sentences)
+const translationCache = new LRUCache<string, string>({
+    max: 5000,
+});
 
 export async function POST(request: Request) {
     try {
@@ -56,6 +59,11 @@ export async function POST(request: Request) {
                     const phraseToIndices = new Map<string, number[]>();
 
                     for (let i = 0; i < blocks.length; i++) {
+                        // 2GB VPS Garbage Collection Yield: Breathe every 1000 lines so V8 cleans heap
+                        if (i > 0 && i % 1000 === 0) {
+                            await new Promise(r => setImmediate(r));
+                        }
+
                         // 1. Formatting Sanitizer: Strip problematic music tokens
                         let text = blocks[i].text.replace(/♪|♫|♬/g, '').trim();
 
@@ -65,7 +73,7 @@ export async function POST(request: Request) {
                             continue;
                         }
 
-                        // 3. Global RAM Cache Hit
+                        // 3. Global LRU Cache Hit
                         if (translationCache.has(text)) {
                             finalTranslations[i] = translationCache.get(text)!;
                             continue;
@@ -110,8 +118,8 @@ export async function POST(request: Request) {
                         let completedBatches = 0;
                         const totalBatches = batches.length;
 
-                        // Max 6 parallel workers to avoid instant DeepL/Langbly IP bans
-                        const limit = pLimit(6);
+                        // Max 3 parallel workers strict clamping for 2GB VPS limits
+                        const limit = pLimit(3);
 
                         // Dispatch all workers concurrently
                         const parallelJobs = batches.map(batch => limit(async () => {
@@ -129,7 +137,13 @@ export async function POST(request: Request) {
                         const completedResults = await Promise.all(parallelJobs);
 
                         // --- Post-Processing: Cache Hydration & Reconstruction ---
-                        for (const res of completedResults) {
+                        for (let rIdx = 0; rIdx < completedResults.length; rIdx++) {
+                            // 2GB VPS Garbage Collection Yield: Breathe every 10 batches array reconstruction
+                            if (rIdx > 0 && rIdx % 10 === 0) {
+                                await new Promise(r => setImmediate(r));
+                            }
+
+                            const res = completedResults[rIdx];
                             const originalChunks = batches[res.index].chunks;
                             const translatedChunks = res.translatedChunks;
 
@@ -137,7 +151,7 @@ export async function POST(request: Request) {
                                 const originalText = originalChunks[j];
                                 const translatedText = translatedChunks[j] || originalText; // Fallback mapping
 
-                                // Hydrate Global Cache for next subtitle file
+                                // Hydrate LRU Global Cache for next subtitle file
                                 translationCache.set(originalText, translatedText);
 
                                 // Distribute to all identical instances in this file
