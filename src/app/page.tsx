@@ -1,176 +1,22 @@
-import React from 'react';
 import Link from 'next/link';
+import { ArrowRight, Check, Globe2, LogIn, ShieldCheck, Sparkles, Timer } from 'lucide-react';
 import { SubtitleConverter } from '@/components/SubtitleConverter';
-import { Layers, Zap, Heart, Globe, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+const features = [
+  ['Timestamp-safe output', 'Every cue, line break and timing marker remains exactly where it belongs.'],
+  ['Sinhala with context', 'Dialogue is translated in batches so tone and meaning stay connected.'],
+  ['A focused workflow', 'Upload, follow live progress, and download a ready-to-watch SRT file.'],
+];
 
 export default function Home() {
   return (
-    <main className="min-h-screen flex flex-col items-center selection:bg-primary/30">
-      {/* Navigation */}
-      <nav className="w-full max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-md bg-gradient-to-tr from-primary to-blue-500 flex items-center justify-center shadow-lg">
-            <Layers className="text-white w-5 h-5" />
-          </div>
-          <span className="text-xl font-bold tracking-tight">SiSub</span>
-        </div>
-        <div className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
-          <Link href="#converter" className="hover:text-foreground transition-colors">Converter</Link>
-          <Link href="#how-it-works" className="hover:text-foreground transition-colors">How it works</Link>
-          <Link href="/pricing" className="hover:text-foreground transition-colors">Pricing</Link>
-        </div>
-        <div className="flex items-center gap-4">
-          <Link href="/login">
-            <Button variant="ghost" className="hidden sm:flex items-center gap-2 text-muted-foreground">
-              <LogIn className="w-4 h-4" /> Login
-            </Button>
-          </Link>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section className="w-full max-w-6xl mx-auto px-6 py-20 md:py-32 flex flex-col lg:flex-row items-center gap-16">
-        <div className="flex-1 space-y-8 text-center lg:text-left">
-          <div className="inline-flex items-center px-3 py-1 rounded-full border border-primary/20 bg-primary/10 text-primary text-sm font-medium mb-4">
-            <SparklesIcon className="w-4 h-4 mr-2" /> Powered by Gemini AI
-          </div>
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight leading-tight">
-            Convert any subtitles to <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">natural Sinhala.</span>
-          </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-            Upload your English `.srt` files and get perfectly timed Sinhala subtitles in seconds. Our AI preserves emotions, context, and Sri Lankan slang perfectly.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-4">
-            <Link href="#converter">
-              <Button size="lg" className="w-full sm:w-auto h-12 px-8 text-base shadow-lg shadow-primary/25">
-                Start converting
-              </Button>
-            </Link>
-            <Button size="lg" variant="secondary" className="w-full sm:w-auto h-12 px-8 text-base">
-              Try as guest
-            </Button>
-          </div>
-        </div>
-
-        <div className="flex-1 w-full max-w-md lg:max-w-none relative">
-          <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-blue-500/20 blur-[100px] rounded-full" />
-          <div id="converter" className="relative z-10">
-            <SubtitleConverter />
-          </div>
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section id="how-it-works" className="w-full max-w-6xl mx-auto px-6 py-24 border-t border-border">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl font-bold mb-4">How it works</h2>
-          <p className="text-muted-foreground">Get your translations done in three simple steps.</p>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-8">
-          <div className="flex flex-col items-center text-center p-6 rounded-2xl bg-card border border-border shadow-sm">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-6 text-primary">
-              1
-            </div>
-            <h3 className="text-xl font-semibold mb-2">Upload subtitles</h3>
-            <p className="text-muted-foreground leading-relaxed">Drag and drop your English `.srt` file. We automatically parse timestamps and text segments.</p>
-          </div>
-
-          <div className="flex flex-col items-center text-center p-6 rounded-2xl bg-card border border-border shadow-sm">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-6 text-primary">
-              <Zap className="w-5 h-5" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">Translate with AI</h3>
-            <p className="text-muted-foreground leading-relaxed">Our Gemini integration processes the chunks, maintaining exact line breaks and semantic meaning.</p>
-          </div>
-
-          <div className="flex flex-col items-center text-center p-6 rounded-2xl bg-card border border-border shadow-sm">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-6 text-primary">
-              3
-            </div>
-            <h3 className="text-xl font-semibold mb-2">Download Sinhala SRT</h3>
-            <p className="text-muted-foreground leading-relaxed">Grab your generated `.srt` file immediately, perfectly synced and ready to use in any video player.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Why Sinhala-first */}
-      <section className="w-full bg-card border-y border-border py-24">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="grid md:grid-cols-2 gap-16 items-center">
-            <div className="space-y-6">
-              <h2 className="text-3xl font-bold">Why AI-powered Sinhala?</h2>
-              <p className="text-muted-foreground text-lg leading-relaxed">
-                Standard translation tools often lose the essence of spoken dialogue. SiSub is configured specifically to handle subtitle context.
-              </p>
-              <ul className="space-y-4 pt-4">
-                <li className="flex items-start gap-3">
-                  <Heart className="w-6 h-6 text-primary shrink-0 mt-0.5" />
-                  <div>
-                    <strong className="block text-foreground">Supports Emotions</strong>
-                    <span className="text-muted-foreground">"I am so mad at you" becomes a strong Sinhala expression, not just a literal word translation.</span>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <Globe className="w-6 h-6 text-primary shrink-0 mt-0.5" />
-                  <div>
-                    <strong className="block text-foreground">Sri Lankan English Slang</strong>
-                    <span className="text-muted-foreground">Words like "bro", "phone", or "okay" remain natural where appropriate.</span>
-                  </div>
-                </li>
-              </ul>
-            </div>
-            <div className="bg-background rounded-2xl border border-border p-8 shadow-inner font-mono text-sm leading-relaxed">
-              <div className="text-muted-foreground mb-2">124</div>
-              <div className="text-muted-foreground mb-4">00:05:22,100 --&gt; 00:05:25,400</div>
-              <div className="text-red-400 mb-6">- I am so mad at you right now!</div>
-
-              <div className="text-muted-foreground mt-8 mb-2">124</div>
-              <div className="text-emerald-400 mb-4">00:05:22,100 --&gt; 00:05:25,400</div>
-              <div className="text-foreground">- මට දැන් ඔයා එක්ක මාර තරහයි තියෙන්නේ!</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="w-full max-w-6xl mx-auto px-6 py-12 flex flex-col md:flex-row items-center justify-between text-sm text-muted-foreground">
-        <div className="flex items-center gap-2 mb-4 md:mb-0">
-          <div className="w-6 h-6 rounded bg-primary/20 flex items-center justify-center">
-            <Layers className="text-primary w-3 h-3" />
-          </div>
-          <span className="font-medium text-foreground">SiSub Converter</span>
-        </div>
-        <div className="flex gap-6">
-          <Link href="#" className="hover:text-foreground transition-colors">Privacy Policy</Link>
-          <Link href="#" className="hover:text-foreground transition-colors">Terms of Service</Link>
-          <Link href="https://github.com" className="hover:text-foreground transition-colors">GitHub</Link>
-        </div>
-      </footer>
+    <main className="min-h-screen overflow-hidden">
+      <nav className="relative z-20 mx-auto flex h-20 w-full max-w-7xl items-center justify-between px-5 sm:px-8"><Link href="/" className="flex items-center gap-3" aria-label="SiSub home"><img src="/sisub-mark.svg" alt="SiSub" className="h-10 w-10 rounded-xl shadow-lg shadow-amber-400/10" /><span className="text-lg font-semibold tracking-tight text-white">SiSub<span className="text-amber-300">.</span></span></Link><div className="hidden items-center gap-7 text-sm text-slate-400 md:flex"><Link href="#studio" className="transition hover:text-white">Studio</Link><Link href="#workflow" className="transition hover:text-white">How it works</Link></div><Button asChild variant="ghost" className="text-slate-300 hover:bg-white/5 hover:text-white"><Link href="/login"><LogIn /> Sign in</Link></Button></nav>
+      <section className="relative mx-auto max-w-7xl px-5 pb-20 pt-12 sm:px-8 md:pb-28 md:pt-20"><div className="hero-orb hero-orb-one" /><div className="hero-orb hero-orb-two" /><div className="grid items-center gap-14 lg:grid-cols-[0.92fr_1.08fr] lg:gap-20"><div className="relative z-10"><div className="mb-7 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/10 px-3 py-1.5 text-xs font-medium text-amber-200"><Sparkles className="h-3.5 w-3.5" /> Sinhala subtitle studio</div><h1 className="max-w-3xl text-balance text-5xl font-semibold tracking-[-0.055em] text-white sm:text-6xl md:text-7xl">Every story deserves to feel <span className="text-gradient">local.</span></h1><p className="mt-7 max-w-xl text-lg leading-8 text-slate-400">Turn English SRT files into natural Sinhala subtitles while keeping the timing, pacing, and feeling of every scene intact.</p><div className="mt-9 flex flex-wrap items-center gap-3"><Button asChild size="lg" className="h-12 rounded-xl bg-amber-300 px-6 font-semibold text-slate-950 shadow-xl shadow-amber-400/15 hover:bg-amber-200"><Link href="#studio">Open the studio <ArrowRight /></Link></Button><div className="flex items-center gap-2 px-2 text-sm text-slate-400"><ShieldCheck className="h-4 w-4 text-emerald-300" /> Keeps SRT structure intact</div></div><div className="mt-12 flex flex-wrap gap-x-7 gap-y-3 text-xs font-medium uppercase tracking-[0.15em] text-slate-500"><span className="flex items-center gap-2"><Timer className="h-4 w-4 text-amber-300" /> Live progress</span><span className="flex items-center gap-2"><Globe2 className="h-4 w-4 text-amber-300" /> Sinhala-first</span></div></div><div id="studio" className="relative z-10 scroll-mt-8"><SubtitleConverter /></div></div></section>
+      <section id="workflow" className="border-y border-white/[0.07] bg-white/[0.025]"><div className="mx-auto max-w-7xl px-5 py-20 sm:px-8"><div className="flex flex-col justify-between gap-7 md:flex-row md:items-end"><div><p className="eyebrow">Built for the final cut</p><h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">A calmer subtitle workflow.</h2></div><p className="max-w-md text-sm leading-6 text-slate-400">No retiming, no manual copy-paste. SiSub respects the format your video player expects.</p></div><div className="mt-12 grid gap-4 md:grid-cols-3">{features.map(([title, description], index) => <article key={title} className="premium-panel rounded-2xl p-7"><span className="mb-8 flex h-9 w-9 items-center justify-center rounded-lg bg-amber-300 text-sm font-bold text-slate-950">0{index + 1}</span><h3 className="text-lg font-semibold text-white">{title}</h3><p className="mt-3 text-sm leading-6 text-slate-400">{description}</p></article>)}</div></div></section>
+      <section className="mx-auto grid max-w-7xl gap-12 px-5 py-20 sm:px-8 lg:grid-cols-2 lg:items-center"><div className="subtitle-sample rounded-2xl border border-white/10 p-6 font-mono text-sm shadow-2xl sm:p-8"><p className="text-slate-600">124</p><p className="mt-2 text-slate-500">00:05:22,100 --&gt; 00:05:25,400</p><p className="mt-3 text-slate-300">I am so mad at you right now!</p><div className="my-7 h-px bg-white/10" /><p className="text-slate-600">124</p><p className="mt-2 text-amber-200/70">00:05:22,100 --&gt; 00:05:25,400</p><p className="mt-3 text-white">මට දැන් ඔයා එක්ක මාර තරහයි තියෙන්නේ!</p></div><div><p className="eyebrow">Meaning, not just words</p><h2 className="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl">Translation that respects the scene.</h2><p className="mt-5 max-w-xl leading-7 text-slate-400">The conversion pipeline parses each subtitle block, translates contextual batches, and rebuilds the original SRT structure for an effortless hand-off.</p><ul className="mt-8 space-y-4 text-sm text-slate-300">{['Preserves indices, timestamps, style tags, and line breaks', 'Uses Gemini with a translation fallback pipeline', 'Streams conversion progress directly in the browser'].map(item => <li key={item} className="flex gap-3"><Check className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />{item}</li>)}</ul></div></section>
+      <footer className="border-t border-white/[0.07]"><div className="mx-auto flex max-w-7xl flex-col gap-5 px-5 py-9 text-sm text-slate-500 sm:px-8 md:flex-row md:items-center md:justify-between"><div className="flex items-center gap-2"><img src="/sisub-mark.svg" alt="" className="h-6 w-6 rounded-md" /> SiSub — Sinhala Subtitle Studio</div><div className="flex gap-5"><Link href="/login" className="hover:text-white">Sign in</Link><a href="https://github.com/mr-kumuditha/Sinhala-Subtitle-Converter" className="hover:text-white">GitHub</a></div></div></footer>
     </main>
-  );
-}
-
-function SparklesIcon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
-      <path d="M5 3v4" />
-      <path d="M19 17v4" />
-      <path d="M3 5h4" />
-      <path d="M17 19h4" />
-    </svg>
   );
 }

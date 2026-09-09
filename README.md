@@ -1,158 +1,126 @@
-# Sisub Subtitle Converter
-> A high-performance, AI-powered subtitle translation engine for seamless SRT localization.
+<p align="center">
+  <img src="public/sisub-mark.svg" width="104" alt="SiSub logo" />
+</p>
 
-## 🌟 Project Overview
-**Sisub** is a robust web application designed to automate the translation of subtitle files (SRT) while maintaining perfect synchronization and formatting. Built for speed and reliability, Sisub leverages state-of-the-art AI models like Gemini and Langbly to deliver contextually accurate translations specifically tuned for Cinematic/Sinhala linguistic nuances.
+<h1 align="center">SiSub</h1>
 
-The system is optimized for low-resource VPS environments (2GB RAM), ensuring cost-effective yet powerful subtitle processing without compromising on quality or stability.
+<p align="center">
+  A premium, AI-powered studio for translating English SRT subtitles into natural Sinhala.
+</p>
 
----
-
-## ✨ Key Features
-- **Smart SRT Parsing**: Automatically extracts text blocks while preserving indices, timestamps, and style tags (`<i>`, `<b>`, etc.).
-- **AI-Powered Translation**: Context-aware translation using **Google Gemini** and **Langbly** API fallbacks.
-- **Advanced Batching**: Aggregates subtitle lines into optimized batches to reduce API latency and costs.
-- **Parallel Processing**: Multi-worker architecture (default: 3 concurrent workers) for high-speed throughput.
-- **Global LRU Caching**: Intelligent sentence-level caching (up to 5,000 phrases) to minimize redundant API calls.
-- **NDJSON Streaming**: Real-time progress tracking via Server-Sent Events/NDJSON for a transparent user experience.
-- **Structure Preservation**: Guarantees that the output SRT file is structurally identical to the source, ensuring no sync issues in media players.
-- **Cloud Integration**: Automatic storage of original and translated files in AWS S3 for record-keeping.
+<p align="center">
+  <a href="https://sinhala-subtitle-converter-seven.vercel.app">Live app</a> ·
+  <a href="#getting-started">Getting started</a> ·
+  <a href="#environment-variables">Configuration</a> ·
+  <a href="LICENSE">MIT License</a>
+</p>
 
 ---
 
-## 🏗️ System Architecture
-The subtitle processing pipeline follows a sophisticated, multi-stage workflow designed for maximum efficiency:
+## What SiSub does
 
-```mermaid
-graph TD
-    A[Upload .srt File] --> B[SRT Parser]
-    B --> C[Deduplication & Sanitization]
-    C --> D{Cache Check}
-    D -- Hit --> E[Direct Reassembly]
-    D -- Miss --> F[Batcher Algorithm]
-    F --> G[Parallel Translation Workers]
-    G --> H[Gemini Primary / Langbly Fallback]
-    H --> I[Post-Processing & Cache Hydration]
-    I --> J[SRT Rebuilder]
-    J --> K[S3 Upload & DB Logging]
-    K --> L[Download Translated File]
+SiSub makes subtitle localisation feel like a focused studio workflow: upload an `.srt` file, follow the live conversion progress, and download a Sinhala version that retains the original SRT structure.
+
+It is designed for dialogue, not isolated fragments. The conversion pipeline processes contextual batches so translations can better preserve tone, timing, and common Sri Lankan English usage.
+
+### Highlights
+
+- Preserves subtitle indices, timestamps, line breaks, and supported formatting tags.
+- Translates in weighted batches with Gemini and a Langbly fallback path.
+- Streams NDJSON progress to the browser while conversion is running.
+- Uses a bounded in-memory LRU cache to avoid repeat translations in an active server instance.
+- Supports optional authentication, conversion history, PostgreSQL persistence, and S3 archival for signed-in users.
+- Includes a polished, responsive dark-mode interface built with Next.js, Tailwind CSS, and Radix UI primitives.
+
+## Architecture
+
+```text
+SRT upload
+  -> parse and normalise subtitle blocks
+  -> de-duplicate and check the LRU cache
+  -> create bounded contextual batches
+  -> Gemini translation / Langbly fallback
+  -> rebuild the SRT file
+  -> stream progress and return the download
 ```
 
-1. **Upload**: User submits an SRT file via the Next.js interface.
-2. **Parse**: The file is broken into logical subtitle blocks (Index, Time, Text).
-3. **Batch**: Subtitles are grouped by character weight and count (max 50 items/2000 chars per batch).
-4. **Translate**: Batches are dispatched to parallel workers with exponential backoff retry logic.
-5. **Merge**: Translated chunks are mapped back to their original indices, replacing source text.
-6. **Generate**: A valid SRT file is reconstructed and streamed back to the client.
+For authenticated users, the original and translated file can also be archived to S3 and a job entry can be stored through Prisma.
 
----
+## Stack
 
-## 💻 Technology Stack
-- **Framework**: [Next.js 14](https://nextjs.org/) (App Router)
-- **Language**: TypeScript
-- **Database**: PostgreSQL with [Prisma ORM](https://www.prisma.io/)
-- **AI Engines**: 
-  - Google Generative AI (Gemini 2.5 Flash)
-  - Langbly Translation API
-- **Storage**: AWS S3 (for backup/history)
-- **Infrastructure**: DigitalOcean VPS
-- **Server**: Nginx (configured for NDJSON streaming)
+| Area | Technology |
+| --- | --- |
+| App | Next.js 14, React 18, TypeScript |
+| UI | Tailwind CSS, Radix UI, Lucide |
+| Translation | Google Gemini, Langbly fallback |
+| Data | PostgreSQL, Prisma |
+| Authentication | NextAuth with Credentials, Google, and Email providers |
+| Storage | AWS S3-compatible storage |
+| Deployment | Vercel |
 
----
+## Getting started
 
-## 🚀 Installation Guide
+### Prerequisites
 
-### 1. Clone the Repository
+- Node.js 20 or later
+- A PostgreSQL database (required by Prisma)
+- A Gemini API key for translation
+
+### Install and run
+
 ```bash
-git clone https://github.com/yourusername/sisub-subtitle-converter.git
-cd sisub-subtitle-converter
-```
-
-### 2. Install Dependencies
-```bash
+git clone https://github.com/mr-kumuditha/Sinhala-Subtitle-Converter.git
+cd Sinhala-Subtitle-Converter
 npm install
-```
-
-### 3. Database Setup
-Initialize your Prisma client and push the schema to your database:
-```bash
+cp .env.example .env
 npx prisma generate
 npx prisma db push
-```
-
-### 4. Run Development Server
-```bash
 npm run dev
 ```
 
----
+Open [http://localhost:3000](http://localhost:3000).
 
-## ⚙️ Environment Configuration
-Create a `.env` file in the root directory and populate it with the following:
+> Use the included `.env.example` as a starting point, never commit `.env`, and use strong production secrets.
 
-| Variable | Description |
-| :--- | :--- |
-| `DATABASE_URL` | PostgreSQL connection string |
-| `NEXTAUTH_SECRET` | Secret key for session encryption |
-| `GEMINI_API_KEY` | API key from Google AI Studio |
-| `LANGLY_API_KEY` | API key for Langbly translation fallback |
-| `AWS_ACCESS_KEY_ID` | AWS Credentials for S3 |
-| `AWS_SECRET_ACCESS_KEY` | AWS Credentials for S3 |
-| `AWS_S3_BUCKET` | The name of your S3 bucket |
+## Environment variables
 
----
+| Variable | Required | Purpose |
+| --- | :---: | --- |
+| `DATABASE_URL` | Yes | PostgreSQL connection URL used by Prisma |
+| `DIRECT_URL` | Yes | Direct PostgreSQL connection URL for Prisma |
+| `NEXTAUTH_SECRET` | Yes | Secret used to sign NextAuth sessions |
+| `NEXTAUTH_URL` | Yes | Canonical application URL, for example your Vercel domain |
+| `GEMINI_API_KEY` | Yes | Google Gemini API key used for translation |
+| `GEMINI_MODEL` | No | Gemini model override; defaults to `gemini-2.5-flash` |
+| `LANGLY_API_KEY` | No | Langbly fallback translation API key |
+| `AWS_ACCESS_KEY_ID` | For archival | S3 access key |
+| `AWS_SECRET_ACCESS_KEY` | For archival | S3 secret access key |
+| `AWS_REGION` | For archival | AWS/S3 region; defaults to `us-east-1` |
+| `AWS_S3_BUCKET_NAME` | For archival | Bucket used for subtitle archives |
+| `AWS_S3_ENDPOINT` | No | Custom S3-compatible endpoint |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | For Google sign-in | Google OAuth credentials |
+| `EMAIL_SERVER` / `EMAIL_FROM` | For email sign-in | SMTP connection URL and sender address |
 
-## 📂 Project Structure
+## Deploying to Vercel
+
+The application is deployed at [sinhala-subtitle-converter-seven.vercel.app](https://sinhala-subtitle-converter-seven.vercel.app).
+
+For a new Vercel project, import this repository, use the default Next.js build settings, and add the required production variables from the table above. `NEXTAUTH_URL` must be a complete HTTPS URL for the production domain; a missing or invalid value prevents NextAuth pages from being pre-rendered.
+
+The translation route exports a 60-second maximum duration. Confirm that this matches your Vercel plan and expected subtitle sizes before relying on it for long files.
+
+## Project structure
+
 ```text
-├── src/
-│   ├── app/            # Next.js App Router (API & UI)
-│   ├── components/     # UI Components (Radix UI, Tailwind)
-│   ├── lib/            # Core Logic (AI, SRT Parsing, Queue)
-│   │   ├── srt.ts      # SRT parsing/building logic
-│   │   ├── gemini.ts   # AI interaction layer
-│   │   └── translator-queue.ts # Batching & fallback management
-├── prisma/             # Schema definitions
-├── public/             # Static assets
-└── .env.example        # Environment template
+src/
+├── app/                 # App Router pages and API routes
+├── components/          # Subtitle studio and UI primitives
+├── lib/                 # SRT parsing, translation, auth, S3, Prisma helpers
+└── hooks/               # Client-side hooks
+prisma/schema.prisma     # PostgreSQL and NextAuth schema
+public/sisub-mark.svg    # Project logo
 ```
 
----
+## License
 
-## 🛠️ Usage Instructions
-1. **Upload**: Drag and drop your `.srt` file into the upload zone.
-2. **Translate**: Click "Translate". The system will begin processing in real-time.
-3. **Track**: Monitor the progress bar as the AI processes batches.
-4. **Download**: Once 100% complete, your translated file will be available for immediate download.
-
----
-
-## ⚡ Performance Optimization
-- **Memory Management**: Optimized for 2GB VPS via V8 heap yielding and LRU (Least Recently Used) caching.
-- **Batching Algorithm**: Reduces API overhead by grouping small segments into single prompts.
-- **Retry Mechanism**: Implements exponential backoff (2s -> 4s -> 8s) to handle API rate limits (429) or transient errors (503).
-- **NDJSON Streaming**: Uses whitespace padding to bypass Nginx/Vercel proxy buffers, ensuring a stable real-time connection.
-
----
-
-## 🌐 Deployment
-The project is designed to run on a **DigitalOcean VPS** behind **Nginx**. 
-> [!IMPORTANT]
-> Ensure your Nginx configuration includes `proxy_buffering off;` and `X-Accel-Buffering no;` to support progress streaming.
-
----
-
-## 🔮 Future Improvements
-- [ ] Support for `.vtt` and `.ass` formats.
-- [ ] Fine-tuned model training for better informal/slang translation.
-- [ ] Multi-file/Batch upload support.
-- [ ] Integration with more providers (DeepL, OpenAI).
-
----
-
-## 🤝 Contributing
-Contributions are welcome! Please feel free to submit a Pull Request.
-
----
-
-## 📄 License
-This project is licensed under the [MIT License](LICENSE).
+SiSub is available under the [MIT License](LICENSE).

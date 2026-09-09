@@ -2,66 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-}
-
-
-
 @layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 9%;
-    --primary: 180 85% 35%; /* Teal primary for light mode */
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 180 85% 35%;
-    --radius: 0.75rem; /* Larger radius for modern cards */
-  }
-
-  .dark {
-    --background: 240 10% 4%; /* Charcoal near-black */
-    --foreground: 0 0% 98%;
-    --card: 240 6% 10%; /* Slightly lighter charcoal for cards */
-    --card-foreground: 0 0% 98%;
-    --popover: 240 6% 10%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 180 70% 50%; /* Teal/Electric blue accent */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 240 6% 16%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 6% 16%;
-    --muted-foreground: 240 5% 65%;
-    --accent: 240 6% 16%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 6% 16%;
-    --input: 240 6% 16%;
-    --ring: 180 70% 50%;
-  }
-}
-
-@layer base {
+  :root { --background: 222 47% 5%; --foreground: 210 40% 98%; --card: 222 39% 9%; --card-foreground: 210 40% 98%; --popover: 222 39% 9%; --popover-foreground: 210 40% 98%; --primary: 43 96% 64%; --primary-foreground: 222 47% 8%; --secondary: 217 33% 17%; --secondary-foreground: 210 40% 98%; --muted: 217 33% 17%; --muted-foreground: 215 20% 65%; --accent: 217 33% 17%; --accent-foreground: 210 40% 98%; --destructive: 0 72% 55%; --destructive-foreground: 0 0% 100%; --border: 217 25% 18%; --input: 217 25% 18%; --ring: 43 96% 64%; --radius: 0.9rem; }
   * {
     @apply border-border;
   }
+  html { scroll-behavior: smooth; }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    background-image: radial-gradient(circle at 50% -20%, rgba(245, 158, 11, .11), transparent 35%), linear-gradient(180deg, #090f1d 0%, #080d17 100%);
   }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+  .text-gradient { background: linear-gradient(110deg, #fef3c7 5%, #fbbf24 55%, #fb7185 105%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .eyebrow { @apply text-xs font-semibold uppercase tracking-[0.18em] text-amber-300; }
+  .premium-panel { background: linear-gradient(145deg, rgba(30, 41, 59, .72), rgba(15, 23, 42, .58)); border: 1px solid rgba(255,255,255,.09); box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 24px 48px rgba(0,0,0,.15); }
+  .subtitle-sample { background: linear-gradient(145deg, rgba(15, 23, 42, .95), rgba(8, 15, 29, .95)); }
+  .hero-orb { position: absolute; pointer-events: none; border-radius: 999px; filter: blur(1px); }
+  .hero-orb-one { width: 520px; height: 520px; right: -120px; top: -100px; background: radial-gradient(circle, rgba(251,191,36,.14), rgba(251,191,36,0) 67%); }
+  .hero-orb-two { width: 390px; height: 390px; left: -210px; bottom: 0; background: radial-gradient(circle, rgba(56,189,248,.09), rgba(56,189,248,0) 68%); }
 }

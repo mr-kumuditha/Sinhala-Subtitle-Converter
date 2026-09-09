@@ -7,8 +7,8 @@ import { Providers } from '@/components/Providers';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'SiSub - Sinhala Subtitle Converter',
-  description: 'AI-powered Sinhala subtitle translator supporting SRT files.',
+  title: 'SiSub — Sinhala Subtitle Studio',
+  description: 'A premium AI-powered studio for translating English SRT subtitles into natural Sinhala.',
 };
 
 export default function RootLayout({
